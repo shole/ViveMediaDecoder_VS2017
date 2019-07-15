@@ -18,7 +18,8 @@ DecoderFFmpeg::DecoderFFmpeg() {
 
 	mSwrContext = NULL;
 
-	mVideoBuffMax = 200; // def 64
+	//mVideoBuffMax = 200; // def 64
+	mVideoBuffMax = 64; // def 64
 	mAudioBuffMax = 128; // def 128
 
 	memset(&mVideoInfo, 0, sizeof(VideoInfo));
@@ -55,7 +56,8 @@ bool DecoderFFmpeg::init(const char* filePath) {
 	if (errorCode < 0) {
 		LOG("config loading error. \n");
 		LOG("Use default settings. \n");
-		mVideoBuffMax = 200;
+		//mVideoBuffMax = 200;
+		mVideoBuffMax = 64;
 		mAudioBuffMax = 128;
 		mUseTCP = false;
 		mIsSeekToAny = false;
@@ -80,6 +82,8 @@ bool DecoderFFmpeg::init(const char* filePath) {
 
 
 
+	av_dict_set(&opts, "hwaccel", "dxva2", 0);
+	LOG("hwaccel");
 	//av_dict_set(&opts, "hwaccel", "cuvid", 0);
 	//av_dict_set(&opts, "c:v", "h264_cuvid", 0);
 
