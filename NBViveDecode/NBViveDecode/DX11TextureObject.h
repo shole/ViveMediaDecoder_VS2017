@@ -11,8 +11,8 @@ public:
 	~DX11TextureObject();
 
 	void create(void* handler, unsigned int width, unsigned int height);
-	void getResourcePointers(void*& ptry, void*& ptru, void*& ptrv);
-	void upload(unsigned char* ych, unsigned char* uch, unsigned char* vch);
+	void getResourcePointers(void*& ptry, void*& ptru, void*& ptrv, void*& ptrmv_u, void*& ptrmv_v);
+	void upload(unsigned char* ych, unsigned char* uch, unsigned char* vch, unsigned char* mv_uch, unsigned char* mv_vch);
 	void destroy();
 
 private:
@@ -25,6 +25,10 @@ private:
 	unsigned int mWidthUV;
 	unsigned int mHeightUV;
 	unsigned int mLengthUV;
+
+	unsigned int mWidthMvUV;
+	unsigned int mHeightMvUV;
+	unsigned int mLengthMvUV;
 
 	ID3D11Texture2D* mTextures[TEXTURE_NUM];
 	ID3D11ShaderResourceView* mShaderResourceView[TEXTURE_NUM];

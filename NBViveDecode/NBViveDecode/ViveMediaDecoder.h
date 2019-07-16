@@ -22,7 +22,7 @@ extern "C" {
 	__declspec(dllexport) int nativeCreateDecoder(const char* filePath, int& id);
 	__declspec(dllexport) int nativeCreateDecoderAsync(const char* filePath, int& id);
 	__declspec(dllexport) int nativeGetDecoderState(int id);
-	__declspec(dllexport) void nativeCreateTexture(int id, void*& tex0, void*& tex1, void*& tex2);
+	__declspec(dllexport) void nativeCreateTexture(int id, void*& tex0, void*& tex1, void*& tex2, void*& tex3, void*& tex4);
 	__declspec(dllexport) bool nativeStartDecoding(int id);
 	__declspec(dllexport) void nativeDestroyDecoder(int id);
 	__declspec(dllexport) bool nativeIsEOF(int id);

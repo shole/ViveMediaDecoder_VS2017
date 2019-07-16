@@ -4,7 +4,12 @@
 #include "Logger.h"
 #include <fstream>
 #include <string>
+#include <vector>
 
+#include <algorithm>
+#include <stdexcept>
+
+#include <libavutil/motion_vector.h>
 
 DecoderFFmpeg::DecoderFFmpeg() {
 	mAVFormatContext = NULL;
@@ -350,6 +355,70 @@ double DecoderFFmpeg::getVideoFrame(unsigned char** outputY, unsigned char** out
 	mVideoInfo.lastTime = timeInSec;
 
 	return timeInSec;
+}
+unsigned char *motionvectorU=NULL;
+unsigned char *motionvectorV=NULL;
+int DecoderFFmpeg::getVideoMotionVectors(unsigned char** outputU, unsigned char** outputV) {
+	std::lock_guard<std::mutex> lock(mVideoMutex);
+
+	if (!mIsInitialized || mVideoFrames.size() == 0) {
+		LOG("Video frame not available. \n");
+		return -1;
+	}
+
+	std::vector<AVMotionVector> motion_vectors;
+
+	AVFrame* frame = mVideoFrames.front();
+	
+	AVFrameSideData *sd = NULL;
+
+	if (motionvectorU == NULL) {
+		motionvectorU = (unsigned char*)malloc(sizeof(unsigned char)*(frame->width / 4)* (frame->height / 4));
+		motionvectorV = (unsigned char*)malloc(sizeof(unsigned char)*(frame->width / 4)* (frame->height / 4));
+	}
+
+	for (int xi = 0; xi < (frame->width / 4); xi++) { // clean vectors
+		for (int yi = 0; yi < (frame->height / 4); yi++) {
+			*(motionvectorU + sizeof(unsigned char) * xi * yi ) = (unsigned char)(255 * ((xi + yi) % 2));
+			*(motionvectorV + sizeof(unsigned char) * xi * yi ) = (unsigned char)(255 * ((xi + yi) % 2));
+		}
+	}
+
+	sd = av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
+
+	if (sd!=NULL) {
+
+		for (int i = 0; i < (frame->width / 4)* (frame->height / 10); i++) { // clean vectors
+			*(motionvectorU + sizeof(unsigned char) * i) = (unsigned char)(i * 255 / ((frame->width / 4)* (frame->height / 10)));
+			*(motionvectorV + sizeof(unsigned char) * i) = (unsigned char)(255 - i * 255 / ((frame->width / 4)* (frame->height / 10)));
+		}
+		AVMotionVector* mvs = (AVMotionVector*)sd->data;
+		int mvcount = sd->size / sizeof(AVMotionVector);
+		motion_vectors = std::vector<AVMotionVector>(mvs, mvs + mvcount);   ////// todo remove
+
+		for (int i = 0; i < motion_vectors.size(); i++) {
+			AVMotionVector mv = motion_vectors[i];
+			if (mv.source == -1) {
+				if (
+					0 < mv.src_x && mv.src_x < frame->width/4
+					&&
+					0 < mv.src_y && mv.src_y < frame->height/4
+					&&
+					0 < mv.dst_x && mv.dst_x < frame->width/4
+					&&
+					0 < mv.dst_y && mv.dst_y < frame->height/4
+					) { // within bounds
+					*(motionvectorU + sizeof(unsigned char) * (int)mv.src_x) = (unsigned char)(128 + ( (mv.src_x - mv.dst_x) / (frame->width  / 4) * 128 ) ); ///// TODO check all of this
+					*(motionvectorV + sizeof(unsigned char) * (int)mv.src_y) = (unsigned char)(128 + ( (mv.src_y - mv.dst_y) / (frame->height / 4) * 128 ) ); ///// TODO check all of this
+					//motionvectorU[(int)(mv.src_x)] = (unsigned char)(128 + ( (mv.src_x - mv.dst_x) / (frame->width  / 4) * 128 ) ); ///// TODO check all of this
+					//motionvectorV[(int)(mv.src_y)] = (unsigned char)(128 + ( (mv.src_y - mv.dst_y) / (frame->height / 4) * 128 ) ); ///// TODO check all of this
+				}
+			}
+		}
+	}
+	*outputU = motionvectorU;
+	*outputV = motionvectorV;
+	return 0;
 }
 
 double DecoderFFmpeg::getAudioFrame(unsigned char** outputFrame, int& frameSize) {

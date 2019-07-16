@@ -32,6 +32,17 @@ void AVHandler::stopDecoding() {
 	mDecoderState = UNINITIALIZED;
 }
 
+
+int AVHandler::getVideoMotionVectors(uint8_t** outputU, uint8_t** outputV) {
+	if (mIDecoder == NULL || !mIDecoder->getVideoInfo().isEnabled || mDecoderState == SEEK) {
+		LOG("Video is not available. \n");
+		*outputU = *outputV = NULL;
+		return -1;
+	}
+
+	return mIDecoder->getVideoMotionVectors(outputU, outputV);
+}
+
 double AVHandler::getVideoFrame(uint8_t** outputY, uint8_t** outputU, uint8_t** outputV) {
 	if (mIDecoder == NULL || !mIDecoder->getVideoInfo().isEnabled || mDecoderState == SEEK) {
 		LOG("Video is not available. \n");

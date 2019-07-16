@@ -9,6 +9,7 @@ DX11TextureObject::DX11TextureObject() {
 	mD3D11Device = NULL;
 	mWidthY = mHeightY = mLengthY = 0;
 	mWidthUV = mHeightUV = mLengthUV = 0;
+	mWidthMvUV = mHeightMvUV = mLengthMvUV = 0;
 	
 	for (int i = 0; i < TEXTURE_NUM; i++) {
 		mTextures[i] = NULL;
@@ -20,7 +21,7 @@ DX11TextureObject::~DX11TextureObject() {
 	destroy();
 }
 
-void DX11TextureObject::getResourcePointers(void*& ptry, void*& ptru, void*& ptrv) {
+void DX11TextureObject::getResourcePointers(void*& ptry, void*& ptru, void*& ptrv, void*& ptrmv_u, void*& ptrmv_v) {
 	if (mD3D11Device == NULL) {
 		return;
 	}
@@ -28,6 +29,8 @@ void DX11TextureObject::getResourcePointers(void*& ptry, void*& ptru, void*& ptr
 	ptry = mShaderResourceView[0];
 	ptru = mShaderResourceView[1];
 	ptrv = mShaderResourceView[2];
+	ptrmv_u = mShaderResourceView[3];
+	ptrmv_v = mShaderResourceView[4];
 }
 
 void DX11TextureObject::create(void* handler, unsigned int width, unsigned int height) {
@@ -43,6 +46,10 @@ void DX11TextureObject::create(void* handler, unsigned int width, unsigned int h
 	mWidthUV = mWidthY / 2;
 	mHeightUV = mHeightY / 2;
 	mLengthUV = mWidthUV * mHeightUV;
+
+	mWidthMvUV = mWidthY / 4;
+	mHeightMvUV = mHeightY / 4;
+	mLengthMvUV = mWidthMvUV * mHeightMvUV;
 
 	//	For YUV420
 	//	Y channel
@@ -96,9 +103,32 @@ void DX11TextureObject::create(void* handler, unsigned int width, unsigned int h
 	if (FAILED(result)) {
 		LOG("Create shader resource view V fail. %x\n", result);
 	}
+
+	// mv UV channel
+	texDesc.Width = width / 4;
+	texDesc.Height = height / 4;
+	result = mD3D11Device->CreateTexture2D(&texDesc, NULL, (ID3D11Texture2D**)(&(mTextures[3])));
+	if (FAILED(result)) {
+		LOG("Create texture mv U fail. Error code: %x\n", result);
+	}
+
+	result = mD3D11Device->CreateShaderResourceView((ID3D11Texture2D*)(mTextures[3]), &shaderResourceViewDesc, &(mShaderResourceView[3]));
+	if (FAILED(result)) {
+		LOG("Create shader resource view mv U fail. Error code: %x\n", result);
+	}
+
+	result = mD3D11Device->CreateTexture2D(&texDesc, NULL, (ID3D11Texture2D**)(&(mTextures[4])));
+	if (FAILED(result)) {
+		LOG("Create texture mv V fail. Error code: %x\n", result);
+	}
+
+	result = mD3D11Device->CreateShaderResourceView((ID3D11Texture2D*)(mTextures[4]), &shaderResourceViewDesc, &(mShaderResourceView[4]));
+	if (FAILED(result)) {
+		LOG("Create shader resource view mv V fail. %x\n", result);
+	}
 }
 
-void DX11TextureObject::upload(unsigned char* ych, unsigned char* uch, unsigned char* vch) {
+void DX11TextureObject::upload(unsigned char* ych, unsigned char* uch, unsigned char* vch, unsigned char* mv_uch, unsigned char* mv_vch) {
 	if (mD3D11Device == NULL) {
 		return;
 	}
@@ -115,10 +145,15 @@ void DX11TextureObject::upload(unsigned char* ych, unsigned char* uch, unsigned 
 	//	Consider padding.
 	UINT rowPitchY = mappedResource[0].RowPitch;
 	UINT rowPitchUV = mappedResource[1].RowPitch;
+	UINT rowPitchMvUV = mappedResource[3].RowPitch;
 
 	uint8_t* ptrMappedY = (uint8_t*)(mappedResource[0].pData);
+
 	uint8_t* ptrMappedU = (uint8_t*)(mappedResource[1].pData);
 	uint8_t* ptrMappedV = (uint8_t*)(mappedResource[2].pData);
+
+	uint8_t* ptrMappedMvU = (uint8_t*)(mappedResource[3].pData);
+	uint8_t* ptrMappedMvV = (uint8_t*)(mappedResource[4].pData);
 
 	//	Two thread memory copy
 	std::thread YThread = std::thread([&]() {
@@ -157,11 +192,35 @@ void DX11TextureObject::upload(unsigned char* ych, unsigned char* uch, unsigned 
 		}
 	});
 
+
+	std::thread UVMvThread = std::thread([&]() {
+		if (mWidthUV == rowPitchMvUV) {
+			memcpy(ptrMappedMvU, mv_vch, mLengthMvUV);
+			memcpy(ptrMappedMvV, mv_vch, mLengthMvUV);
+		}
+		else {
+			//	Handle rowpitch of mapped memory.
+			//	YUV420, length U == length V
+			uint8_t* endU = mv_uch + mLengthMvUV;
+			while (mv_uch != endU) {
+				memcpy(ptrMappedMvU, mv_uch, mWidthMvUV);
+				memcpy(ptrMappedMvV, mv_vch, mWidthMvUV);
+				mv_uch += mWidthMvUV;
+				mv_vch += mWidthMvUV;
+				ptrMappedMvU += rowPitchMvUV;
+				ptrMappedMvV += rowPitchMvUV;
+			}
+		}
+	});
+
 	if (YThread.joinable()) {
 		YThread.join();
 	}
 	if (UVThread.joinable()) {
 		UVThread.join();
+	}
+	if (UVMvThread.joinable()) {
+		UVMvThread.join();
 	}
 
 	for (int i = 0; i < TEXTURE_NUM; i++) {

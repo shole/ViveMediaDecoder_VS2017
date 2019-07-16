@@ -164,9 +164,18 @@ void DoRendering (int id)
 					uint8_t* ptrY = NULL;
 					uint8_t* ptrU = NULL;
 					uint8_t* ptrV = NULL;
+
+					uint8_t* ptrMV_U = NULL;
+					uint8_t* ptrMV_V = NULL;
+
 					double curFrameTime = localAVHandler->getVideoFrame(&ptrY, &ptrU, &ptrV);
+					
+
 					if (ptrY != NULL && curFrameTime != -1 && localVideoContext->lastUpdateTime != curFrameTime) {
-						localVideoContext->textureObj->upload(ptrY, ptrU, ptrV);
+
+						localAVHandler->getVideoMotionVectors(&ptrMV_U, &ptrMV_V);
+
+						localVideoContext->textureObj->upload(ptrY, ptrU, ptrV, ptrMV_U, ptrMV_V);
 						localVideoContext->lastUpdateTime = (float)curFrameTime;
 						localVideoContext->isContentReady = true;
 					}
@@ -228,11 +237,11 @@ int nativeGetDecoderState(int id) {
 	return videoCtx->avhandler->getDecoderState();
 }
 
-void nativeCreateTexture(int id, void*& tex0, void*& tex1, void*& tex2) {
+void nativeCreateTexture(int id, void*& tex0, void*& tex1, void*& tex2, void*& tex3, void*& tex4) {
 	shared_ptr<VideoContext> videoCtx;
 	if (!getVideoContext(id, videoCtx) || videoCtx->textureObj == NULL) { return; }
 
-	videoCtx->textureObj->getResourcePointers(tex0, tex1, tex2);
+	videoCtx->textureObj->getResourcePointers(tex0, tex1, tex2, tex3, tex4);
 }
 
 bool nativeStartDecoding(int id) {
@@ -501,6 +510,10 @@ bool nativeIsEOF(int id) {
 	if (!getVideoContext(id, videoCtx) || videoCtx->avhandler == NULL) { return true; }
 
 	return videoCtx->avhandler->getDecoderState() == AVHandler::DecoderState::DECODE_EOF;
+}
+void getMotionVectors() {
+	
+	//AVFrameSideData *sd = av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
 }
 
 //extern "C" EXPORT_API void nativeGetTextureType(void* ptr0) {

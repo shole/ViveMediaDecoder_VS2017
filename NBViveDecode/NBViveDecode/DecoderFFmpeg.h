@@ -10,6 +10,7 @@ extern "C" {
 #include <libavcodec\avcodec.h>
 #include <libswresample\swresample.h>
 #include <libavutil/avutil.h>
+#include <vector>
 
 }
 
@@ -29,8 +30,9 @@ public:
 	void setVideoEnable(bool isEnable);
 	void setAudioEnable(bool isEnable);
 	void setAudioAllChDataEnable(bool isEnable);
-	double	getVideoFrame(unsigned char** outputY, unsigned char** outputU, unsigned char** outputV);
-	double	getAudioFrame(unsigned char** outputFrame, int& frameSize);
+	int	getVideoMotionVectors(unsigned char** outputU, unsigned char** outputV);
+	double getVideoFrame(unsigned char** outputY, unsigned char** outputU, unsigned char** outputV);
+	double getAudioFrame(unsigned char** outputFrame, int& frameSize);
 	void freeVideoFrame();
 	void freeAudioFrame();
 
