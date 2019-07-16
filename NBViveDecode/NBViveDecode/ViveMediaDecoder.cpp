@@ -312,6 +312,11 @@ void nativeSetVideoTime(int id, float currentTime) {
 
 	videoCtx->progressTime = currentTime;
 }
+float nativeGetVideoTime(int id) {
+	shared_ptr<VideoContext> videoCtx;
+	if (!getVideoContext(id, videoCtx)) { return false; }
+	return videoCtx->lastUpdateTime;
+}
 
 bool nativeIsAudioEnabled(int id) {
 	shared_ptr<VideoContext> videoCtx;

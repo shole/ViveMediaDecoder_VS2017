@@ -31,6 +31,7 @@ extern "C" {
 	__declspec(dllexport) void nativeSetVideoEnable(int id, bool isEnable);
 	__declspec(dllexport) void nativeGetVideoFormat(int id, int& width, int& height, float& totalTime);
 	__declspec(dllexport) void nativeSetVideoTime(int id, float currentTime);
+	__declspec(dllexport) float nativeGetVideoTime(int id);
 	__declspec(dllexport) bool nativeIsContentReady(int id);
 	__declspec(dllexport) bool nativeIsVideoBufferFull(int id);
 	__declspec(dllexport) bool nativeIsVideoBufferEmpty(int id);
