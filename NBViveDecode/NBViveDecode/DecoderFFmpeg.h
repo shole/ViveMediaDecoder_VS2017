@@ -59,6 +59,9 @@ private:
 	unsigned int mVideoBuffMax;
 	unsigned int mAudioBuffMax;
 
+	unsigned char* motionvectorU;
+	unsigned char* motionvectorV;
+
 	SwrContext*	mSwrContext;
 	int initSwrContext();
 

@@ -86,8 +86,9 @@ bool DecoderFFmpeg::init(const char* filePath) {
 	//av_dict_set(&opts, "maxdelay", "1000", 0);
 
 
+	av_dict_set(&opts, "flags2", "+export_mvs", 0);
 
-	av_dict_set(&opts, "hwaccel", "dxva2", 0);
+	//av_dict_set(&opts, "hwaccel", "dxva2", 0);
 	LOG("hwaccel");
 	//av_dict_set(&opts, "hwaccel", "cuvid", 0);
 	//av_dict_set(&opts, "c:v", "h264_cuvid", 0);
@@ -119,6 +120,7 @@ bool DecoderFFmpeg::init(const char* filePath) {
 	//mAVFormatContext->video_codec_id = mAVFormatContext->video_codec->id;
 	//mAVFormatContext->audio_codec_id = mAVFormatContext->audio_codec->id;
 	//mAVFormatContext->flags |= AVFMT_FLAG_NONBLOCK;
+	mAVFormatContext->flags |= AVFMT_FLAG_KEEP_SIDE_DATA;
 	//errorCode = avformat_open_input(&mAVFormatContext, filePath, mInFormat, &opts);
 	/////-----optimised by nite on 26/6
 
@@ -356,8 +358,7 @@ double DecoderFFmpeg::getVideoFrame(unsigned char** outputY, unsigned char** out
 
 	return timeInSec;
 }
-unsigned char *motionvectorU=NULL;
-unsigned char *motionvectorV=NULL;
+
 int DecoderFFmpeg::getVideoMotionVectors(unsigned char** outputU, unsigned char** outputV) {
 	std::lock_guard<std::mutex> lock(mVideoMutex);
 
@@ -377,17 +378,16 @@ int DecoderFFmpeg::getVideoMotionVectors(unsigned char** outputU, unsigned char*
 		motionvectorV = (unsigned char*)malloc(sizeof(unsigned char)*(frame->width / 4)* (frame->height / 4));
 	}
 
-	for (int xi = 0; xi < (frame->width / 4); xi++) { // clean vectors
-		for (int yi = 0; yi < (frame->height / 4); yi++) {
-			*(motionvectorU + sizeof(unsigned char) * xi * yi ) = (unsigned char)(255 * ((xi + yi) % 2));
-			*(motionvectorV + sizeof(unsigned char) * xi * yi ) = (unsigned char)(255 * ((xi + yi) % 2));
-		}
-	}
-
 	sd = av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
 
 	if (sd!=NULL) {
 
+		for (int xi = 0; xi < (frame->width / 4); xi++) { // clean vectors
+			for (int yi = 0; yi < (frame->height / 4); yi++) {
+				*(motionvectorU + sizeof(unsigned char) * xi * yi ) = (unsigned char)255;
+				*(motionvectorV + sizeof(unsigned char) * xi * yi ) = (unsigned char)255;
+			}
+		}
 		for (int i = 0; i < (frame->width / 4)* (frame->height / 10); i++) { // clean vectors
 			*(motionvectorU + sizeof(unsigned char) * i) = (unsigned char)(i * 255 / ((frame->width / 4)* (frame->height / 10)));
 			*(motionvectorV + sizeof(unsigned char) * i) = (unsigned char)(255 - i * 255 / ((frame->width / 4)* (frame->height / 10)));
