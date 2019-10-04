@@ -166,7 +166,7 @@ void DoRendering (int id)
 					uint8_t* ptrV = NULL;
 					double curFrameTime = localAVHandler->getVideoFrame(&ptrY, &ptrU, &ptrV);
 					if (ptrY != NULL && curFrameTime != -1 && localVideoContext->lastUpdateTime != curFrameTime) {
-						localVideoContext->textureObj->upload(ptrY, ptrU, ptrV);
+						localVideoContext->textureObj->uploadCropped(ptrY, ptrU, ptrV);
 						localVideoContext->lastUpdateTime = (float)curFrameTime;
 						localVideoContext->isContentReady = true;
 					}

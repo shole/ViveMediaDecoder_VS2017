@@ -7,6 +7,7 @@ public:
 	virtual ~ITextureObject() {}
 	virtual void create(void* handler, unsigned int width, unsigned int height) = 0;
 	virtual void getResourcePointers(void*& ptry, void*& ptru, void*& ptrv) = 0;
+	virtual void uploadCropped(unsigned char* ych, unsigned char* uch, unsigned char* vch) = 0;
 	virtual void upload(unsigned char* ych, unsigned char* uch, unsigned char* vch) = 0;
 	virtual void destroy() = 0;
 

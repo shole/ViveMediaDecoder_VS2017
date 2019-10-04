@@ -98,6 +98,85 @@ void DX11TextureObject::create(void* handler, unsigned int width, unsigned int h
 	}
 }
 
+unsigned int frameCycle = 0;
+unsigned int decimation = 5;
+uint8_t* lastMappedY = NULL;
+
+// read this stuff https://eatplayhate.me/2013/09/29/d3d11-texture-update-costs/
+
+void DX11TextureObject::uploadCropped(unsigned char* ych, unsigned char* uch, unsigned char* vch) {
+	if (mD3D11Device == NULL) {
+		return;
+	}
+
+	ID3D11DeviceContext* ctx = NULL;
+	mD3D11Device->GetImmediateContext(&ctx);
+	
+	D3D11_MAPPED_SUBRESOURCE mappedResource[TEXTURE_NUM];
+	for (int i = 0; i < TEXTURE_NUM; i++) {
+		//ZeroMemory(&(mappedResource[i]), sizeof(D3D11_MAPPED_SUBRESOURCE));
+		ctx->Map(mTextures[i], 0, D3D11_MAP_WRITE_DISCARD, 0, &(mappedResource[i])); // discard to write?
+	}
+
+	//	Consider padding.
+	UINT rowPitchY = mappedResource[0].RowPitch;
+	UINT rowPitchUV = mappedResource[1].RowPitch;
+
+	uint8_t* ptrMappedY = (uint8_t*)(mappedResource[0].pData);
+	uint8_t* ptrMappedU = (uint8_t*)(mappedResource[1].pData);
+	uint8_t* ptrMappedV = (uint8_t*)(mappedResource[2].pData);
+
+	frameCycle++;
+	bool fullRefresh = lastMappedY != ptrMappedY; // not valid test
+	lastMappedY = ptrMappedY;
+
+	//	Two thread memory copy
+	std::thread YThread = std::thread([&]() {
+		//	Map region has its own row pitch which may different to texture width.
+		//	Handle rowpitch of mapped memory.
+
+		unsigned int row = 0;
+		uint8_t* end = ych + mLengthY;
+		while (ych != end) {
+			if (fullRefresh || (row++ + frameCycle) % decimation == 0) {
+				memcpy(ptrMappedY, ych, mWidthY);
+			}
+			ych += mWidthY;
+			ptrMappedY += rowPitchY;
+		}
+	});
+
+	std::thread UVThread = std::thread([&]() {
+
+		unsigned int row = 0;
+
+		//	Handle rowpitch of mapped memory.
+		//	YUV420, length U == length V
+		uint8_t* endU = uch + mLengthUV;
+		while (uch != endU) {
+			if (fullRefresh || (row++ + frameCycle) % decimation == 0) {
+				memcpy(ptrMappedU, uch, mWidthUV);
+				memcpy(ptrMappedV, vch, mWidthUV);
+			}
+			uch += mWidthUV;
+			vch += mWidthUV;
+			ptrMappedU += rowPitchUV;
+			ptrMappedV += rowPitchUV;
+		}
+	});
+
+	if (YThread.joinable()) {
+		YThread.join();
+	}
+	if (UVThread.joinable()) {
+		UVThread.join();
+	}
+
+	for (int i = 0; i < TEXTURE_NUM; i++) {
+		ctx->Unmap(mTextures[i], 0);
+	}
+	ctx->Release();
+}
 void DX11TextureObject::upload(unsigned char* ych, unsigned char* uch, unsigned char* vch) {
 	if (mD3D11Device == NULL) {
 		return;

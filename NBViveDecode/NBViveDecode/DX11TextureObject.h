@@ -12,6 +12,7 @@ public:
 
 	void create(void* handler, unsigned int width, unsigned int height);
 	void getResourcePointers(void*& ptry, void*& ptru, void*& ptrv);
+	void uploadCropped(unsigned char* ych, unsigned char* uch, unsigned char* vch);
 	void upload(unsigned char* ych, unsigned char* uch, unsigned char* vch);
 	void destroy();
 
