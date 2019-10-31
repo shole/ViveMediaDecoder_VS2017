@@ -245,6 +245,7 @@ bool DecoderFFmpeg::decode() {
 
 	if (!isBuffBlocked()) {
 		if (av_read_frame(mAVFormatContext, &mPacket) < 0) {
+			updateVideoFrame();
 			LOG("End of file.\n");
 			return false;
 		}
@@ -256,7 +257,6 @@ bool DecoderFFmpeg::decode() {
 		}
 
 		av_packet_unref(&mPacket);
-		updateBufferState();
 	}
 
 	return true;
@@ -490,6 +490,7 @@ void DecoderFFmpeg::updateVideoFrame() {
 	if (isFrameAvailable) {
 		std::lock_guard<std::mutex> lock(mVideoMutex);
 		mVideoFrames.push(frame);
+		updateBufferState();
 	}
 }
 
@@ -510,6 +511,7 @@ void DecoderFFmpeg::updateAudioFrame() {
 
 	std::lock_guard<std::mutex> lock(mAudioMutex);
 	mAudioFrames.push(frame);
+	updateBufferState();
 	av_frame_free(&frameDecoded);
 }
 
