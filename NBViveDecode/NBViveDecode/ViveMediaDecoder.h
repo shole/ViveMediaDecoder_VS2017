@@ -19,6 +19,7 @@
 
 extern "C" {
 	//	Decoder
+	__declspec(dllexport) float nativeFlushFramesUntil(int id, float time);
 	__declspec(dllexport) int nativeCreateDecoder(const char* filePath, int& id);
 	__declspec(dllexport) int nativeCreateDecoderAsync(const char* filePath, int& id);
 	__declspec(dllexport) int nativeGetDecoderState(int id);

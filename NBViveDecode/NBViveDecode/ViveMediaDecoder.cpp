@@ -178,6 +178,93 @@ void DoRendering (int id)
 	}
 }
 
+void DoRenderingSync(int id);
+static void UNITY_INTERFACE_API OnRenderEventSync(int eventID)
+{
+	// Unknown graphics device type? Do nothing.
+	if (s_DeviceType == -1)
+		return;
+
+	// Actual functions defined below
+	DoRenderingSync(eventID);
+}
+
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventSyncFunc()
+{
+	return OnRenderEventSync;
+}
+
+void DoRenderingSync(int id)
+{
+	if (s_DeviceType == kUnityGfxRendererD3D11 && g_D3D11Device != NULL)
+	{
+		ID3D11DeviceContext* ctx = NULL;
+		g_D3D11Device->GetImmediateContext (&ctx);
+
+		shared_ptr<VideoContext> localVideoContext;
+		if (getVideoContext(id, localVideoContext)) {
+			AVHandler* localAVHandler = localVideoContext->avhandler.get();
+
+			if (localAVHandler != NULL && localAVHandler->getDecoderState() >= AVHandler::DecoderState::INITIALIZED && localAVHandler->getVideoInfo().isEnabled) {
+				if (localVideoContext->textureObj == NULL) {
+					unsigned int width = localAVHandler->getVideoInfo().width;
+					unsigned int height = localAVHandler->getVideoInfo().height;
+					localVideoContext->textureObj = make_unique<DX11TextureObject>();
+					localVideoContext->textureObj->create(g_D3D11Device, width, height);
+				}
+
+				double videoDecCurTime = localAVHandler->getVideoInfo().lastTime;
+				LOG("videoDecCurTime = %f \n", videoDecCurTime);
+				if (videoDecCurTime <= localVideoContext->progressTime) {
+					uint8_t* ptrY = NULL;
+					uint8_t* ptrU = NULL;
+					uint8_t* ptrV = NULL;
+					double curFrameTime;
+					while (true) {
+						curFrameTime = localAVHandler->getVideoFrame(&ptrY, &ptrU, &ptrV);
+						if (curFrameTime<localVideoContext->progressTime) {
+							localAVHandler->freeVideoFrame();
+						} else {
+							break;
+						}
+					};
+					if (ptrY != NULL && curFrameTime != -1 && localVideoContext->lastUpdateTime != curFrameTime) {
+						localVideoContext->textureObj->upload(ptrY, ptrU, ptrV);
+						localVideoContext->lastUpdateTime = (float)curFrameTime;
+						localVideoContext->isContentReady = true;
+					}
+					localAVHandler->freeVideoFrame();
+				}
+			}
+		}
+		ctx->Release();
+	}
+}
+
+float nativeFlushFramesUntil(int id, float time) { // discard frames until frame timestamp over desired
+	shared_ptr<VideoContext> localVideoContext;
+	if (getVideoContext(id, localVideoContext)) {
+		AVHandler* localAVHandler = localVideoContext->avhandler.get();
+		if (localAVHandler != NULL && localAVHandler->getDecoderState() >= AVHandler::DecoderState::INITIALIZED && localAVHandler->getVideoInfo().isEnabled) {
+			uint8_t* ptrY = NULL;
+			uint8_t* ptrU = NULL;
+			uint8_t* ptrV = NULL;
+			double targetTime = time;
+			double curFrameTime;
+			while(true){
+				curFrameTime = localAVHandler->getVideoFrame(&ptrY, &ptrU, &ptrV);
+				if (curFrameTime<time) {
+					localAVHandler->freeVideoFrame();
+				} else {
+					break;
+				}
+			};
+			return (float)curFrameTime;
+		}
+	}
+	return -1.0;
+}
+
 int nativeCreateDecoderAsync(const char* filePath, int& id) {
 	LOG("Query available decoder id. \n");
 
