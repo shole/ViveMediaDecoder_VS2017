@@ -220,14 +220,14 @@ void DoRenderingSync(int id)
 					uint8_t* ptrU = NULL;
 					uint8_t* ptrV = NULL;
 					double curFrameTime;
-					while (true) {
+					do {
 						curFrameTime = localAVHandler->getVideoFrame(&ptrY, &ptrU, &ptrV);
 						if (curFrameTime<localVideoContext->progressTime) {
 							localAVHandler->freeVideoFrame();
 						} else {
 							break;
 						}
-					};
+					} while (localAVHandler->getDecoderState() >= AVHandler::DecoderState::INITIALIZED && localAVHandler->getVideoInfo().isEnabled);
 					if (ptrY != NULL && curFrameTime != -1 && localVideoContext->lastUpdateTime != curFrameTime) {
 						localVideoContext->textureObj->upload(ptrY, ptrU, ptrV);
 						localVideoContext->lastUpdateTime = (float)curFrameTime;
